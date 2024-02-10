@@ -4,6 +4,11 @@ import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/FileUpload.js"
 import { ResponseHandler } from "../utils/ResponseHandler.js";
 import jwt from "jsonwebtoken"
+
+ const options = {
+        httpOnly:true, 
+        secure:true
+    }
 const generateAccessAndRefreshTokens = async (userId)=>{
     try {
         const user = await User.findById(userId)
@@ -112,10 +117,7 @@ const loginUser = asyncHandler(async (req,res)=>{
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
-    const options = {
-        httpOnly:true, //makes the cookie modifiable only in server
-        secure:true
-    }
+   
     return res
     .status(200)
     .cookie("accessToken",accessToken,options)
@@ -135,18 +137,14 @@ const logoutUser = asyncHandler(async(req,res)=>{
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set:{
-                refreshToken:undefined
+            $unset:{
+                refreshToken:1
             }
         },
         {
             new: true
         } 
     )
-    const options = {
-        httpOnly:true, //makes the cookie modifiable only in server
-        secure:true
-    }
     return res
     .status(200)
     .clearCookie("accessToken",options)
@@ -177,16 +175,11 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
       if(incomingRefreshToken !== user?.refreshToken){
           throw new ErrorHandler(401,"Refresh token is expired or used");
       }
-  
-      const options = {
-          httpOnly:true,
-          secure:true
-      }
       const {newAccessToken,newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
       return res
       .status(200)
-      .cookie("accessToken",newAccessToken)
-      .cookie("refreshToken",newRefreshToken)
+      .cookie("accessToken",newAccessToken,options)
+      .cookie("refreshToken",newRefreshToken,options)
       .json(
           new ResponseHandler(
               200,
